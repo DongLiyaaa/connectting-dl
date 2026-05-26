@@ -32,7 +32,7 @@ export function normalizeConfig(input, configPath) {
       verificationToken: String(input?.feishu?.verificationToken ?? ""),
       encryptKey: String(input?.feishu?.encryptKey ?? ""),
       botName: String(input?.feishu?.botName ?? "connectting-dl"),
-      processingReactionEmoji: String(input?.feishu?.processingReactionEmoji ?? "WINK"),
+      processingReactionEmoji: String(input?.feishu?.processingReactionEmoji ?? "DONE"),
       groupRequireMention: Boolean(input?.feishu?.groupRequireMention ?? true),
       allowedChatIds: Array.isArray(input?.feishu?.allowedChatIds) ? input.feishu.allowedChatIds.map(String) : [],
       blockedChatIds: Array.isArray(input?.feishu?.blockedChatIds) ? input.feishu.blockedChatIds.map(String) : [],
