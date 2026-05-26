@@ -154,14 +154,21 @@ connectting-dl init \
 
 If you want background running and crash auto-restart:
 
-- macOS: use the provided `launchd` template
-- Linux: use the provided `systemd --user` template
+- `connectting-dl daemon install`: install the native per-user daemon for the current OS
+- `connectting-dl daemon status`: show a friendly runtime summary
+- `connectting-dl daemon logs --lines 100`: tail recent daemon logs
+- `connectting-dl daemon uninstall`: remove the native per-user daemon
 
 See:
 
 - [docs/daemon.md](./docs/daemon.md)
 - [docs/launchd.connectting-dl.plist](./docs/launchd.connectting-dl.plist)
 - [docs/connectting-dl.service](./docs/connectting-dl.service)
+
+The CLI automatically chooses the host service manager:
+
+- macOS: `launchd`
+- Linux: `systemd --user`
 
 ### Feishu scopes
 
@@ -340,14 +347,21 @@ connectting-dl init \
 
 如果你需要后台运行和异常退出自动拉起：
 
-- macOS：使用提供的 `launchd` 模板
-- Linux：使用提供的 `systemd --user` 模板
+- `connectting-dl daemon install`：按当前系统自动安装用户级守护
+- `connectting-dl daemon status`：输出更友好的运行摘要
+- `connectting-dl daemon logs --lines 100`：查看最近守护日志
+- `connectting-dl daemon uninstall`：卸载用户级守护
 
 见：
 
 - [docs/daemon.md](./docs/daemon.md)
 - [docs/launchd.connectting-dl.plist](./docs/launchd.connectting-dl.plist)
 - [docs/connectting-dl.service](./docs/connectting-dl.service)
+
+CLI 会自动选择宿主系统的服务管理器：
+
+- macOS：`launchd`
+- Linux：`systemd --user`
 
 ### 飞书权限
 

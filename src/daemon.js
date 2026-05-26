@@ -18,6 +18,7 @@ function daemonHelp() {
     "  connectting-dl daemon install [--config <path>]",
     "  connectting-dl daemon uninstall [--config <path>]",
     "  connectting-dl daemon status",
+    "  connectting-dl daemon logs [--lines <n>]",
     "",
     "Behavior:",
     "  macOS -> launchd LaunchAgent",
@@ -214,16 +215,49 @@ async function uninstallMacosDaemon() {
   return `Daemon uninstalled from launchd.\nplist: ${plistPath}`;
 }
 
-async function statusMacosDaemon() {
+async function statusMacosDaemon(commonPaths) {
+  const plistPath = path.join(os.homedir(), "Library", "LaunchAgents", `${LAUNCHD_LABEL}.plist`);
   const uid = typeof process.getuid === "function" ? process.getuid() : null;
   if (!uid) {
     throw new Error("Unable to determine current user id for launchd status.");
   }
   const result = await runCommand("launchctl", ["print", `gui/${uid}/${LAUNCHD_LABEL}`], { allowFailure: true });
   if (!result.ok) {
-    return `launchd status: not loaded\n${result.stderr || result.stdout}`.trim();
+    return [
+      "daemon: launchd",
+      `label: ${LAUNCHD_LABEL}`,
+      `loaded: ${(await pathExists(plistPath)) ? "yes" : "no"}`,
+      "state: not loaded"
+    ].join("\n");
   }
-  return result.stdout.trim() || `launchd status: loaded (${LAUNCHD_LABEL})`;
+
+  const output = result.stdout;
+  const state = output.match(/state = ([^\n]+)/)?.[1]?.trim() || "loaded";
+  const pid = output.match(/\bpid = (\d+)/)?.[1]?.trim() || "";
+  const lastExitCode = output.match(/last exit code = (\d+)/)?.[1]?.trim() || "0";
+  const lines = [
+    "daemon: launchd",
+    `label: ${LAUNCHD_LABEL}`,
+    "loaded: yes",
+    `state: ${state}`,
+    `last exit code: ${lastExitCode}`,
+    `plist: ${plistPath}`,
+    `stdout: ${commonPaths.stdoutLogPath}`,
+    `stderr: ${commonPaths.stderrLogPath}`
+  ];
+
+  if (pid) {
+    lines.splice(4, 0, `pid: ${pid}`);
+    const processInfo = await runCommand("ps", ["-p", pid, "-o", "pid=,ppid=,stat=,etime=,command="], {
+      allowFailure: true
+    });
+    const summary = processInfo.stdout.trim();
+    if (summary) {
+      lines.push(`process: ${summary}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 async function installLinuxDaemon({ nodePath, scriptPath, configPath, workDir }) {
@@ -252,12 +286,118 @@ async function uninstallLinuxDaemon() {
   return `Daemon uninstalled from systemd --user.\nunit: ${unitPath}`;
 }
 
-async function statusLinuxDaemon() {
-  const result = await runCommand("systemctl", ["--user", "status", SYSTEMD_UNIT, "--no-pager"], { allowFailure: true });
+async function statusLinuxDaemon(commonPaths) {
+  const unitPath = path.join(os.homedir(), ".config", "systemd", "user", SYSTEMD_UNIT);
+  const result = await runCommand(
+    "systemctl",
+    [
+      "--user",
+      "show",
+      SYSTEMD_UNIT,
+      "--property=LoadState,ActiveState,SubState,MainPID,UnitFileState,FragmentPath,ExecMainStatus"
+    ],
+    { allowFailure: true }
+  );
   if (!result.ok) {
-    return `systemd status: not active\n${result.stderr || result.stdout}`.trim();
+    return [
+      "daemon: systemd --user",
+      `unit: ${SYSTEMD_UNIT}`,
+      `installed: ${(await pathExists(unitPath)) ? "yes" : "no"}`,
+      "state: not loaded"
+    ].join("\n");
   }
-  return result.stdout.trim();
+
+  const props = Object.fromEntries(
+    result.stdout
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const index = line.indexOf("=");
+        return [line.slice(0, index), line.slice(index + 1)];
+      })
+  );
+  const lines = [
+    "daemon: systemd --user",
+    `unit: ${SYSTEMD_UNIT}`,
+    `installed: ${props.LoadState === "loaded" ? "yes" : "no"}`,
+    `state: ${props.ActiveState || "unknown"}${props.SubState ? ` (${props.SubState})` : ""}`,
+    `main pid: ${props.MainPID || "0"}`,
+    `last exit code: ${props.ExecMainStatus || "0"}`,
+    `unit file: ${props.FragmentPath || unitPath}`,
+    `enabled: ${props.UnitFileState || "unknown"}`,
+    `journal: journalctl --user -u ${SYSTEMD_UNIT} -f`
+  ];
+
+  if (props.MainPID && props.MainPID !== "0") {
+    const processInfo = await runCommand(
+      "ps",
+      ["-p", props.MainPID, "-o", "pid=,ppid=,stat=,etime=,command="],
+      { allowFailure: true }
+    );
+    const summary = processInfo.stdout.trim();
+    if (summary) {
+      lines.push(`process: ${summary}`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+async function readTailLines(filePath, lines) {
+  if (!(await pathExists(filePath))) {
+    return `(missing) ${filePath}`;
+  }
+  const result = await runCommand("tail", ["-n", String(lines), filePath], { allowFailure: true });
+  if (!result.ok) {
+    return `Unable to read ${filePath}\n${result.stderr || result.stdout}`.trim();
+  }
+  return result.stdout.trim() || `(empty) ${filePath}`;
+}
+
+async function logsMacosDaemon(commonPaths, lines) {
+  const stdoutLog = await readTailLines(commonPaths.stdoutLogPath, lines);
+  const stderrLog = await readTailLines(commonPaths.stderrLogPath, lines);
+  return [
+    "daemon: launchd",
+    `stdout: ${commonPaths.stdoutLogPath}`,
+    "----- stdout -----",
+    stdoutLog,
+    "",
+    `stderr: ${commonPaths.stderrLogPath}`,
+    "----- stderr -----",
+    stderrLog
+  ].join("\n");
+}
+
+async function logsLinuxDaemon(lines) {
+  const result = await runCommand(
+    "journalctl",
+    ["--user", "-u", SYSTEMD_UNIT, "-n", String(lines), "--no-pager", "-o", "short-iso"],
+    { allowFailure: true }
+  );
+  if (!result.ok) {
+    return `Unable to read systemd logs.\n${result.stderr || result.stdout}`.trim();
+  }
+  return [
+    "daemon: systemd --user",
+    `unit: ${SYSTEMD_UNIT}`,
+    "----- journal -----",
+    result.stdout.trim() || "(no log entries)"
+  ].join("\n");
+}
+
+function parseLinesOption(args, fallback = 50) {
+  const index = args.indexOf("--lines");
+  if (index === -1) {
+    return fallback;
+  }
+  const rawValue = args[index + 1];
+  const parsed = Number.parseInt(rawValue, 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid --lines value: ${rawValue}`);
+  }
+  return parsed;
 }
 
 export async function handleDaemon(args, configPath, currentArgv1) {
@@ -302,7 +442,17 @@ export async function handleDaemon(args, configPath, currentArgv1) {
   }
 
   if (action === "status") {
-    const message = platformKind === "macos" ? await statusMacosDaemon() : await statusLinuxDaemon();
+    const message = platformKind === "macos" ? await statusMacosDaemon(commonPaths) : await statusLinuxDaemon(commonPaths);
+    process.stdout.write(`${message}\n`);
+    return;
+  }
+
+  if (action === "logs") {
+    const lines = parseLinesOption(args);
+    const message =
+      platformKind === "macos"
+        ? await logsMacosDaemon(commonPaths, lines)
+        : await logsLinuxDaemon(lines);
     process.stdout.write(`${message}\n`);
     return;
   }

@@ -17,7 +17,7 @@ function printHelp() {
       "  connectting-dl init [--config <path>] [--owner-open-id <open_id>] [--app-id <id>] [--app-secret <secret>] [--workspace <path>] [--force]",
       "  connectting-dl doctor [--config <path>]",
       "  connectting-dl serve [--config <path>]",
-      "  connectting-dl daemon <install|uninstall|status> [--config <path>]",
+      "  connectting-dl daemon <install|uninstall|status|logs> [--config <path>] [--lines <n>]",
       ""
     ].join("\n")
   );

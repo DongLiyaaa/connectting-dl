@@ -13,6 +13,15 @@ This project ships example templates for:
 - macOS `launchd`
 - Linux `systemd --user`
 
+It also ships a built-in helper that chooses the right service manager automatically:
+
+```bash
+connectting-dl daemon install
+connectting-dl daemon status
+connectting-dl daemon logs --lines 100
+connectting-dl daemon uninstall
+```
+
 ## Common assumptions
 
 1. `connectting-dl` is already installed and callable from your shell.
