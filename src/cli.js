@@ -33,6 +33,26 @@ function hasFlag(args, flag) {
   return args.includes(flag);
 }
 
+function isMissingFileError(error) {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "ENOENT");
+}
+
+async function promptConfirm(rl, label, defaultValue = false) {
+  while (true) {
+    const suffix = defaultValue ? " [Y/n]" : " [y/N]";
+    const answer = (await rl.question(`${label}${suffix}: `)).trim().toLowerCase();
+    if (!answer) {
+      return defaultValue;
+    }
+    if (["y", "yes"].includes(answer)) {
+      return true;
+    }
+    if (["n", "no"].includes(answer)) {
+      return false;
+    }
+  }
+}
+
 function getDefaultPaths(configPath) {
   const resolvedConfigPath = path.resolve(expandHome(configPath));
   const appHome = path.dirname(resolvedConfigPath);
@@ -129,34 +149,45 @@ async function ensureWorkspaceScaffold(workspaceDir) {
 
 async function handleInit(configPath) {
   const args = process.argv.slice(2);
+  const isInteractive = process.stdin.isTTY && process.stdout.isTTY;
   const force = hasFlag(args, "--force");
+  let existingConfig = null;
+  const paths = getDefaultPaths(configPath);
+  let configExists = false;
+  try {
+    await fs.access(paths.resolvedConfigPath);
+    configExists = true;
+  } catch (error) {
+    if (!isMissingFileError(error)) {
+      throw error;
+    }
+  }
+
+  if (configExists) {
+    existingConfig = await loadConfig(paths.resolvedConfigPath);
+    if (!force && !isInteractive) {
+      throw new Error(
+        `Config already exists: ${paths.resolvedConfigPath}\nRe-run with --force to overwrite, or run interactively to update existing values.`
+      );
+    }
+  }
+
   const ownerOpenIdArg = getOptionValue(args, "--owner-open-id", "").trim();
   const appIdArg = getOptionValue(args, "--app-id", "").trim();
   const appSecretArg = getOptionValue(args, "--app-secret", "").trim();
   const verificationTokenArg = getOptionValue(args, "--verification-token", "").trim();
   const encryptKeyArg = getOptionValue(args, "--encrypt-key", "").trim();
-  const paths = getDefaultPaths(configPath);
-  const workspaceArg = getOptionValue(args, "--workspace", paths.workspaceDir);
+  const workspaceFallback = existingConfig?.codex?.workDir || paths.workspaceDir;
+  const workspaceArg = getOptionValue(args, "--workspace", workspaceFallback);
   const workspaceDir = path.resolve(expandHome(workspaceArg));
 
-  try {
-    await fs.access(paths.resolvedConfigPath);
-    if (!force) {
-      throw new Error(`Config already exists: ${paths.resolvedConfigPath}\nRe-run with --force to overwrite.`);
-    }
-  } catch (error) {
-    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
-      throw error;
-    }
-  }
+  let ownerOpenId = ownerOpenIdArg || existingConfig?.owner?.openIds?.[0] || "";
+  let appId = appIdArg || existingConfig?.feishu?.appId || "";
+  let appSecret = appSecretArg || existingConfig?.feishu?.appSecret || "";
+  let verificationToken = verificationTokenArg || existingConfig?.feishu?.verificationToken || "";
+  let encryptKey = encryptKeyArg || existingConfig?.feishu?.encryptKey || "";
 
-  let ownerOpenId = ownerOpenIdArg;
-  let appId = appIdArg;
-  let appSecret = appSecretArg;
-  let verificationToken = verificationTokenArg;
-  let encryptKey = encryptKeyArg;
-
-  if (process.stdin.isTTY && process.stdout.isTTY) {
+  if (isInteractive) {
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout
@@ -165,6 +196,17 @@ async function handleInit(configPath) {
       process.stdout.write("connectting-dl init\n");
       process.stdout.write(`Config home: ${paths.appHome}\n`);
       process.stdout.write(`Default workspace: ${workspaceDir}\n\n`);
+      if (configExists && !force) {
+        const shouldOverwrite = await promptConfirm(
+          rl,
+          `Config already exists at ${paths.resolvedConfigPath}. Update it using current values as defaults?`
+        );
+        if (!shouldOverwrite) {
+          process.stdout.write("Init cancelled.\n");
+          return;
+        }
+        process.stdout.write("\n");
+      }
       ownerOpenId = await promptValue(rl, "Owner Feishu open_id", ownerOpenId, { required: true });
       appId = await promptValue(rl, "Feishu app_id", appId, { required: true });
       appSecret = await promptValue(rl, "Feishu app_secret", appSecret, { required: true, secret: true });
