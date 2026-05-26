@@ -1,0 +1,15 @@
+[Unit]
+Description=connectting-dl bridge service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=__CONNECTTING_DL_BIN__ serve --config __CONFIG_PATH__
+WorkingDirectory=__WORKDIR__
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=default.target

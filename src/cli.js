@@ -4,6 +4,7 @@ import process from "node:process";
 import readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG_PATH, ensureStorageLayout, loadConfig } from "./config.js";
+import { handleDaemon } from "./daemon.js";
 import { BridgeServer } from "./server.js";
 import { expandHome, writeJson } from "./utils.js";
 
@@ -16,6 +17,7 @@ function printHelp() {
       "  connectting-dl init [--config <path>] [--owner-open-id <open_id>] [--app-id <id>] [--app-secret <secret>] [--workspace <path>] [--force]",
       "  connectting-dl doctor [--config <path>]",
       "  connectting-dl serve [--config <path>]",
+      "  connectting-dl daemon <install|uninstall|status> [--config <path>]",
       ""
     ].join("\n")
   );
@@ -298,6 +300,10 @@ export async function main(argv) {
   }
   if (command === "serve") {
     await handleServe(configPath);
+    return;
+  }
+  if (command === "daemon") {
+    await handleDaemon(argv.slice(1), configPath, process.argv[1]);
     return;
   }
   throw new Error(`Unknown command: ${command}`);

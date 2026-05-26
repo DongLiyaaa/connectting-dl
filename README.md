@@ -148,6 +148,21 @@ connectting-dl init \
   --app-secret xxx
 ```
 
+### Daemon / background running
+
+`connectting-dl` does not currently include a built-in process supervisor.
+
+If you want background running and crash auto-restart:
+
+- macOS: use the provided `launchd` template
+- Linux: use the provided `systemd --user` template
+
+See:
+
+- [docs/daemon.md](./docs/daemon.md)
+- [docs/launchd.connectting-dl.plist](./docs/launchd.connectting-dl.plist)
+- [docs/connectting-dl.service](./docs/connectting-dl.service)
+
 ### Feishu scopes
 
 The Feishu app should be allowed to:
@@ -318,6 +333,21 @@ connectting-dl init \
   --app-id cli_xxx \
   --app-secret xxx
 ```
+
+### 守护 / 后台运行
+
+`connectting-dl` 当前没有内建进程守护器。
+
+如果你需要后台运行和异常退出自动拉起：
+
+- macOS：使用提供的 `launchd` 模板
+- Linux：使用提供的 `systemd --user` 模板
+
+见：
+
+- [docs/daemon.md](./docs/daemon.md)
+- [docs/launchd.connectting-dl.plist](./docs/launchd.connectting-dl.plist)
+- [docs/connectting-dl.service](./docs/connectting-dl.service)
 
 ### 飞书权限
 
