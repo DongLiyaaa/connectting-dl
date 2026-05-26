@@ -4,7 +4,7 @@
   "description": "Lightweight Feishu to Codex CLI bridge for small team deployments.",
   "type": "module",
   "bin": {
-    "connectting-dl": "./bin/connectting-dl.js"
+    "connectting-dl": "bin/connectting-dl.js"
   },
   "files": [
     "bin",

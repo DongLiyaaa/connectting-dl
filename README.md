@@ -1,6 +1,14 @@
 # connectting-dl
 
+[English](#english) | [中文](#中文)
+
+---
+
+## English
+
 `connectting-dl` is a lightweight Feishu to Codex CLI bridge aimed at small team deployments.
+
+### Project overview
 
 Current MVP includes:
 
@@ -11,20 +19,30 @@ Current MVP includes:
 - Local SQLite session persistence
 - Explicit attachment sending protocol for files and images
 
-## Install
+### Features / MVP scope
+
+- Text-message-first bridge between Feishu and Codex CLI
+- Per-session transcript isolation for P2P and group chats
+- Owner-only operational commands for inspection and media sending
+- File and image reply support through an explicit attachment directive
+- Configurable reaction emoji and outgoing bot-name prefix
+
+### Install
+
+Registry install command for the future published package:
 
 ```bash
 npm install -g connectting-dl
 ```
 
-Or from a local checkout:
+Current local development install:
 
 ```bash
 cd projects/connectting-dl
 npm link
 ```
 
-## Quick Start
+### Quick start
 
 1. Run the installer.
 
@@ -56,13 +74,23 @@ connectting-dl doctor
 connectting-dl serve
 ```
 
-4. Configure Feishu event subscription callback to:
+4. Configure the Feishu event subscription callback to:
 
 ```text
 http(s)://<your-host>:8787/feishu/events
 ```
 
-## MVP Behavior
+### Default directory layout
+
+- `~/.connectting-dl/config.json`: primary runtime configuration
+- `~/.connectting-dl/data`: SQLite database and local state
+- `~/.connectting-dl/workspace`: default Codex CLI working directory
+
+### Owner configuration
+
+The owner identity is configured in `owner.openIds` inside `~/.connectting-dl/config.json`.
+
+`/ctl show` is denied unless `owner.allowReadAllSessions` is explicitly enabled.
 
 ### Session isolation
 
@@ -70,7 +98,7 @@ http(s)://<your-host>:8787/feishu/events
 - Group chat: isolated by `chat_id`
 - The same user speaking in two different groups does not share history
 
-### Owner controls
+### Owner commands
 
 Owners can use chat commands:
 
@@ -83,16 +111,12 @@ Owners can use chat commands:
 - `/ctl sendfile <path>`
 - `/ctl show <sessionId>`
 
-`/ctl show` is denied unless `owner.allowReadAllSessions` is explicitly enabled.
-
-The owner identity is configured in `owner.openIds` inside `~/.connectting-dl/config.json`.
-
-### Explicit attachments
+### Attachment directive
 
 The main reply flow supports an attachment directive appended to the assistant output:
 
 ````text
-正常可见回复内容
+Normal visible reply text
 
 ```connectting-dl
 {
@@ -111,7 +135,7 @@ Rules:
 - relative paths are resolved from `codex.workDir`
 - if `type` is omitted, common image extensions are treated as images and everything else is sent as a file
 
-## Local commands
+### Local commands
 
 ```bash
 connectting-dl doctor
@@ -128,7 +152,7 @@ connectting-dl init \
   --app-secret xxx
 ```
 
-## Feishu scopes
+### Feishu scopes
 
 The Feishu app should be allowed to:
 
@@ -138,7 +162,7 @@ The Feishu app should be allowed to:
 
 Exact app permissions depend on whether you run in internal or marketplace mode.
 
-## Notes
+### Notes / caveats
 
 - This MVP focuses on text messages first.
 - Encrypted Feishu callbacks are supported when `encryptKey` is configured.
@@ -152,4 +176,178 @@ Exact app permissions depend on whether you run in internal or marketplace mode.
 - Feishu client helpers support image upload/reply and file upload/reply for shadow testing and future media workflows.
 - Common office formats such as `pdf`, `doc/docx`, `xls/xlsx`, `ppt/pptx`, plus `txt`, `md`, and other generic files are supported. Unknown formats fall back to Feishu `stream` upload.
 - Incoming messages can receive a configurable reaction emoji before processing, and outgoing text replies can include a configurable bot-name prefix.
-- The default Codex CLI working directory is `~/.connectting-dl/workspace`.
+
+---
+
+## 中文
+
+`connectting-dl` 是一个面向小团队部署的轻量级 Feishu 到 Codex CLI 桥接工具。
+
+### 项目简介
+
+当前 MVP 包含：
+
+- 飞书事件回调服务
+- 多用户、多群组会话隔离
+- 带显式跨会话访问控制的 owner 命令通道
+- 基于 `codex exec` 的非交互式回复集成
+- 基于本地 SQLite 的会话持久化
+- 面向文件和图片的显式附件发送协议
+
+### 功能 / MVP 范围
+
+- 以文本消息为主的 Feishu 与 Codex CLI 桥接
+- 针对私聊和群聊的按会话隔离 transcript
+- 仅 owner 可用的运维命令，用于检查状态和发送媒体
+- 通过显式附件指令支持文件和图片回复
+- 可配置的 reaction 表情和机器人名前缀
+
+### 安装
+
+面向未来 npm 发布版本的安装命令：
+
+```bash
+npm install -g connectting-dl
+```
+
+当前本地开发安装方式：
+
+```bash
+cd projects/connectting-dl
+npm link
+```
+
+### 快速开始
+
+1. 运行初始化安装。
+
+```bash
+connectting-dl init
+```
+
+会创建：
+
+- `~/.connectting-dl/config.json`
+- `~/.connectting-dl/data`
+- `~/.connectting-dl/workspace`
+
+执行 `init` 时，终端会提示输入：
+
+- 飞书 `app_id`
+- 飞书 `app_secret`
+- owner `open_id`
+
+2. 检查本地配置。
+
+```bash
+connectting-dl doctor
+```
+
+3. 启动桥接服务。
+
+```bash
+connectting-dl serve
+```
+
+4. 将飞书事件订阅回调地址配置为：
+
+```text
+http(s)://<your-host>:8787/feishu/events
+```
+
+### 默认目录结构
+
+- `~/.connectting-dl/config.json`：主运行配置
+- `~/.connectting-dl/data`：SQLite 数据库和本地状态
+- `~/.connectting-dl/workspace`：默认 Codex CLI 工作目录
+
+### owner 配置
+
+owner 身份通过 `~/.connectting-dl/config.json` 中的 `owner.openIds` 配置。
+
+除非显式启用 `owner.allowReadAllSessions`，否则 `/ctl show` 会被拒绝。
+
+### 会话隔离
+
+- 私聊：按 `chat_id + user_open_id` 隔离
+- 群聊：按 `chat_id` 隔离
+- 同一个用户在两个不同群里发言不会共享历史
+
+### owner 命令
+
+owner 可以使用以下聊天命令：
+
+- `/ctl help`
+- `/ctl sessions`
+- `/ctl health`
+- `/ctl ownerlog`
+- `/ctl attachlog`
+- `/ctl sendimage <path>`
+- `/ctl sendfile <path>`
+- `/ctl show <sessionId>`
+
+### 附件协议
+
+主回复流程支持在 assistant 输出末尾追加附件指令：
+
+````text
+Normal visible reply text
+
+```connectting-dl
+{
+  "attachments": [
+    { "path": "/absolute/path/report.pdf", "type": "file" },
+    { "path": "./artifacts/chart.png", "type": "image" }
+  ]
+}
+```
+````
+
+规则：
+
+- 可见文本会先作为普通文本消息发送
+- 每个附件都会在文本之后单独上传并回复
+- 相对路径基于 `codex.workDir` 解析
+- 如果省略 `type`，常见图片扩展名会按图片处理，其余文件按普通文件发送
+
+### 本地命令
+
+```bash
+connectting-dl doctor
+connectting-dl serve
+connectting-dl init
+```
+
+也支持非交互式初始化：
+
+```bash
+connectting-dl init \
+  --owner-open-id ou_xxx \
+  --app-id cli_xxx \
+  --app-secret xxx
+```
+
+### 飞书权限
+
+飞书应用应至少具备以下能力：
+
+- 接收消息事件
+- 发送消息
+- 访问租户 token 交换所需的应用凭证
+
+具体权限会因你使用内部应用模式还是应用市场模式而不同。
+
+### 注意事项
+
+- 这个 MVP 当前优先处理文本消息。
+- 当配置了 `encryptKey` 时，支持加密的飞书回调。
+- `codex exec` 使用滚动 transcript 窗口，而不是原生恢复的 Codex 会话。
+- 默认 runner 参数只会保留 CLI 实际支持的 `codex exec` 选项。
+- 重复的飞书 `message_id` 事件在首次成功处理后会被忽略。
+- 群消息在发送给 Codex 之前会去掉开头的 `@mention` 文本。
+- 旧版 `sessions.json` 会在第一次启动 SQLite 时自动导入。
+- owner 控制命令会单独存入 SQLite 的 `owner_actions`，与普通聊天 transcript 分离。
+- 附件发送结果会存入 SQLite 的 `attachment_events`。
+- 飞书客户端辅助逻辑已支持图片上传/回复和文件上传/回复，便于 shadow testing 和后续媒体工作流扩展。
+- 常见办公文件格式如 `pdf`、`doc/docx`、`xls/xlsx`、`ppt/pptx`，以及 `txt`、`md` 等通用文件都支持；未知格式会回退到飞书 `stream` 上传。
+- 收到的消息可以在处理前添加可配置的 reaction 表情，发出的文本回复可以添加可配置的机器人名前缀。
