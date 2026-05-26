@@ -35,13 +35,6 @@ Registry install command for the future published package:
 npm install -g connectting-dl
 ```
 
-Current local development install:
-
-```bash
-cd projects/connectting-dl
-npm link
-```
-
 ### Quick start
 
 1. Run the installer.
@@ -211,13 +204,6 @@ Exact app permissions depend on whether you run in internal or marketplace mode.
 
 ```bash
 npm install -g connectting-dl
-```
-
-当前本地开发安装方式：
-
-```bash
-cd projects/connectting-dl
-npm link
 ```
 
 ### 快速开始
