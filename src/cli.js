@@ -1,12 +1,17 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { execFile } from "node:child_process";
 import readline from "node:readline/promises";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG_PATH, ensureStorageLayout, loadConfig } from "./config.js";
 import { handleDaemon } from "./daemon.js";
+import { buildBotOpenLink, FeishuClient } from "./feishu-client.js";
 import { BridgeServer } from "./server.js";
 import { expandHome, writeJson } from "./utils.js";
+
+const execFileAsync = promisify(execFile);
 
 function printHelp() {
   process.stdout.write(
@@ -17,6 +22,8 @@ function printHelp() {
       "  connectting-dl init [--config <path>] [--owner-open-id <open_id>] [--app-id <id>] [--app-secret <secret>] [--workspace <path>] [--force]",
       "  connectting-dl doctor [--config <path>]",
       "  connectting-dl serve [--config <path>]",
+      "  connectting-dl bind [--config <path>] [--open]",
+      "  connectting-dl send (--open-id <id> | --chat-id <id>) --text <message> [--config <path>]",
       "  connectting-dl daemon <install|uninstall|status|logs> [--config <path>] [--lines <n>]",
       ""
     ].join("\n")
@@ -108,6 +115,10 @@ function buildInitConfig(options) {
       maxMessages: 50
     }
   };
+}
+
+function countValidOwnerOpenIds(config) {
+  return config.owner.openIds.filter((value) => /^ou_/.test(value)).length;
 }
 
 async function promptValue(rl, label, fallbackValue, { secret = false, required = false } = {}) {
@@ -255,6 +266,7 @@ async function handleInit(configPath) {
 async function handleDoctor(configPath) {
   const config = await loadConfig(configPath);
   await ensureStorageLayout(config);
+  const botLink = buildBotOpenLink(config.feishu.appId);
   process.stdout.write(
     [
       "connectting-dl doctor: ok",
@@ -264,7 +276,9 @@ async function handleDoctor(configPath) {
       `sqlite: ${config.storage.dbPath}`,
       `codex command: ${config.codex.command}`,
       `codex workdir: ${config.codex.workDir}`,
-      `owner count: ${config.owner.openIds.length}`
+      `owner count: ${countValidOwnerOpenIds(config)}`,
+      `supported ingress: http callback + long connection`,
+      `bot bind link: ${botLink}`
     ].join("\n") + "\n"
   );
 }
@@ -280,6 +294,67 @@ async function handleServe(configPath) {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
   await server.start();
+}
+
+async function openUrl(url) {
+  if (process.platform === "darwin") {
+    await execFileAsync("open", [url]);
+    return;
+  }
+  if (process.platform === "linux") {
+    await execFileAsync("xdg-open", [url]);
+    return;
+  }
+  throw new Error(`Unsupported platform for opening URLs: ${process.platform}`);
+}
+
+async function handleBind(configPath) {
+  const args = process.argv.slice(2);
+  const config = await loadConfig(configPath);
+  const botLink = buildBotOpenLink(config.feishu.appId);
+  if (hasFlag(args, "--open")) {
+    await openUrl(botLink);
+  }
+  process.stdout.write(
+    [
+      "connectting-dl bind",
+      `bot link: ${botLink}`,
+      "",
+      "How to use:",
+      "  1. Open the link in Feishu or a browser.",
+      "  2. Enter the bot chat.",
+      "  3. Send any message to the bot.",
+      "  4. If owner.openIds is empty, that first sender will be auto-bound as owner."
+    ].join("\n") + "\n"
+  );
+}
+
+async function handleSend(configPath) {
+  const args = process.argv.slice(2);
+  const openId = getOptionValue(args, "--open-id", "").trim();
+  const chatId = getOptionValue(args, "--chat-id", "").trim();
+  const text = getOptionValue(args, "--text", "");
+
+  if (!text.trim()) {
+    throw new Error("Message text is required. Pass --text \"...\".");
+  }
+  if (Boolean(openId) === Boolean(chatId)) {
+    throw new Error("Pass exactly one target: --open-id <id> or --chat-id <id>.");
+  }
+
+  const config = await loadConfig(configPath);
+  const client = new FeishuClient(config);
+  const result = openId
+    ? await client.sendText("open_id", openId, text)
+    : await client.sendText("chat_id", chatId, text);
+  process.stdout.write(
+    [
+      "connectting-dl send: ok",
+      `target type: ${openId ? "open_id" : "chat_id"}`,
+      `target id: ${openId || chatId}`,
+      `message id: ${result.data?.message_id || "-"}`
+    ].join("\n") + "\n"
+  );
 }
 
 export async function main(argv) {
@@ -300,6 +375,14 @@ export async function main(argv) {
   }
   if (command === "serve") {
     await handleServe(configPath);
+    return;
+  }
+  if (command === "bind") {
+    await handleBind(configPath);
+    return;
+  }
+  if (command === "send") {
+    await handleSend(configPath);
     return;
   }
   if (command === "daemon") {

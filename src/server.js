@@ -1,4 +1,5 @@
 import http from "node:http";
+import * as Lark from "@larksuiteoapi/node-sdk";
 import { toConfigFile } from "./config.js";
 import { Logger } from "./logger.js";
 import { SessionStore } from "./session-store.js";
@@ -96,8 +97,12 @@ function buildSessionMeta(event) {
   };
 }
 
+function getValidOwnerOpenIds(config) {
+  return config.owner.openIds.filter((value) => /^ou_/.test(value));
+}
+
 function isOwner(config, openId) {
-  return config.owner.openIds.includes(openId);
+  return getValidOwnerOpenIds(config).includes(openId);
 }
 
 function shouldProcessGroup(config, payload, allowOwnerBypass = false) {
@@ -249,6 +254,7 @@ export class BridgeServer {
     await new Promise((resolve) => {
       this.server.listen(this.config.server.port, this.config.server.host, resolve);
     });
+    await this.startLongConnection();
     this.logger.info("bridge server started", {
       host: this.config.server.host,
       port: this.config.server.port
@@ -256,6 +262,10 @@ export class BridgeServer {
   }
 
   async stop() {
+    if (this.wsClient) {
+      this.wsClient.close();
+      this.wsClient = null;
+    }
     if (!this.server) {
       await this.sessionStore.close();
       return;
@@ -270,6 +280,46 @@ export class BridgeServer {
       });
     });
     await this.sessionStore.close();
+  }
+
+  async startLongConnection() {
+    try {
+      this.wsClient = new Lark.WSClient({
+        appId: this.config.feishu.appId,
+        appSecret: this.config.feishu.appSecret,
+        loggerLevel: Lark.LoggerLevel.warn,
+        onError: (error) => {
+          this.logger.warn("feishu long connection failed", {
+            message: error instanceof Error ? shortText(error.message, 200) : String(error)
+          });
+        },
+        onReconnecting: () => {
+          this.logger.warn("feishu long connection reconnecting");
+        },
+        onReconnected: () => {
+          this.logger.info("feishu long connection reconnected");
+        }
+      });
+
+      const dispatcher = new Lark.EventDispatcher({ loggerLevel: Lark.LoggerLevel.warn }).register({
+        "im.message.receive_v1": async (event) => {
+          await this.handleFeishuPayload({
+            header: {
+              event_type: "im.message.receive_v1"
+            },
+            event
+          });
+        }
+      });
+
+      await this.wsClient.start({ eventDispatcher: dispatcher });
+      this.logger.info("feishu long connection started");
+    } catch (error) {
+      this.wsClient = null;
+      this.logger.warn("feishu long connection unavailable, continuing with HTTP callback only", {
+        message: error instanceof Error ? shortText(error.message, 200) : String(error)
+      });
+    }
   }
 
   async handleRequest(request, response) {
@@ -373,7 +423,7 @@ export class BridgeServer {
   }
 
   async ensureOwnerBinding(senderOpenId) {
-    if (!senderOpenId || this.config.owner.openIds.length) {
+    if (!senderOpenId || getValidOwnerOpenIds(this.config).length) {
       return;
     }
     this.config.owner.openIds = [senderOpenId];

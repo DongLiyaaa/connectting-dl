@@ -13,6 +13,7 @@
 Current MVP includes:
 
 - Feishu event callback server
+- Feishu long connection event receiver
 - Multi-user and multi-group session isolation
 - Owner command channel with explicit cross-session access controls
 - `codex exec` integration for non-interactive replies
@@ -68,11 +69,22 @@ connectting-dl doctor
 connectting-dl serve
 ```
 
-4. Configure the Feishu event subscription callback to:
+4. Choose either Feishu ingress mode:
+
+- Long connection: keep the Feishu app configured for long connection event delivery.
+- HTTP callback: configure the Feishu event subscription callback to:
 
 ```text
 http(s)://<your-host>:8787/feishu/events
 ```
+
+5. Open the bot chat and trigger owner auto-binding:
+
+```bash
+connectting-dl bind --open
+```
+
+Then send any message to the bot. If `owner.openIds` is empty, that first sender becomes the owner automatically.
 
 ### Default directory layout
 
@@ -137,7 +149,20 @@ Rules:
 connectting-dl doctor
 connectting-dl serve
 connectting-dl init
+connectting-dl bind --open
+connectting-dl send --open-id ou_xxx --text "hello"
 ```
+
+`connectting-dl bind` prints an AppLink that opens the bot chat:
+
+```text
+https://applink.feishu.cn/client/bot/open?appId=<your_app_id>
+```
+
+`connectting-dl send` can proactively send a text message as the bot to either:
+
+- `--open-id <open_id>`
+- `--chat-id <chat_id>`
 
 Non-interactive init is also supported:
 
@@ -206,6 +231,7 @@ Exact app permissions depend on whether you run in internal or marketplace mode.
 当前 MVP 包含：
 
 - 飞书事件回调服务
+- 飞书长连接事件接收
 - 多用户、多群组会话隔离
 - 带显式跨会话访问控制的 owner 命令通道
 - 基于 `codex exec` 的非交互式回复集成
@@ -261,11 +287,22 @@ connectting-dl doctor
 connectting-dl serve
 ```
 
-4. 将飞书事件订阅回调地址配置为：
+4. 飞书接入方式二选一：
+
+- 长连接：在飞书后台保持“使用长连接接收事件”即可。
+- HTTP 回调：将飞书事件订阅回调地址配置为：
 
 ```text
 http(s)://<your-host>:8787/feishu/events
 ```
+
+5. 打开 bot 会话并触发 owner 自动绑定：
+
+```bash
+connectting-dl bind --open
+```
+
+随后给 bot 发任意一条消息。如果 `owner.openIds` 为空，这个首条发送者就会被自动绑定为 owner。
 
 ### 默认目录结构
 
@@ -330,7 +367,20 @@ Normal visible reply text
 connectting-dl doctor
 connectting-dl serve
 connectting-dl init
+connectting-dl bind --open
+connectting-dl send --open-id ou_xxx --text "hello"
 ```
+
+`connectting-dl bind` 会输出一个可直接打开 bot 会话的 AppLink：
+
+```text
+https://applink.feishu.cn/client/bot/open?appId=<your_app_id>
+```
+
+`connectting-dl send` 可以让 bot 主动发一条文本消息到：
+
+- `--open-id <open_id>`
+- `--chat-id <chat_id>`
 
 也支持非交互式初始化：
 

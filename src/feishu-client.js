@@ -86,6 +86,12 @@ export class FeishuClient {
     });
   }
 
+  async sendText(receiveIdType, receiveId, text) {
+    return this.sendMessage(receiveIdType, receiveId, "text", {
+      text: `${buildTextPrefix(this.config)}${text}`
+    });
+  }
+
   async replyImage(messageId, imageKey) {
     return this.replyWithContent(messageId, "image", {
       image_key: imageKey
@@ -115,6 +121,30 @@ export class FeishuClient {
     const data = await response.json();
     if (!response.ok || data.code !== 0) {
       throw new Error(`Failed to reply message: ${JSON.stringify(data)}`);
+    }
+    return data;
+  }
+
+  async sendMessage(receiveIdType, receiveId, msgType, content) {
+    const token = await this.getTenantAccessToken();
+    const response = await fetch(
+      `https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=${encodeURIComponent(receiveIdType)}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        body: JSON.stringify({
+          receive_id: receiveId,
+          msg_type: msgType,
+          content: JSON.stringify(content)
+        })
+      }
+    );
+    const data = await response.json();
+    if (!response.ok || data.code !== 0) {
+      throw new Error(`Failed to send message: ${JSON.stringify(data)}`);
     }
     return data;
   }
@@ -187,6 +217,10 @@ export class FeishuClient {
       fileName
     };
   }
+}
+
+export function buildBotOpenLink(appId) {
+  return `https://applink.feishu.cn/client/bot/open?appId=${encodeURIComponent(appId)}`;
 }
 
 export function inferFileType(filePath) {
