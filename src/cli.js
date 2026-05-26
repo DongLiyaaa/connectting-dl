@@ -89,7 +89,7 @@ function buildInitConfig(options) {
       appSecret: options.appSecret,
       verificationToken: options.verificationToken,
       encryptKey: options.encryptKey,
-      botName: "connectting-dl",
+      botName: "",
       processingReactionEmoji: "DONE",
       groupRequireMention: true,
       allowedChatIds: [],

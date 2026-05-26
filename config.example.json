@@ -12,7 +12,7 @@
     "appSecret": "xxx",
     "verificationToken": "",
     "encryptKey": "",
-    "botName": "connectting-dl",
+    "botName": "",
     "processingReactionEmoji": "DONE",
     "groupRequireMention": true,
     "allowedChatIds": [],

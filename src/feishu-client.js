@@ -167,7 +167,25 @@ export class FeishuClient {
     if (!response.ok || data.code !== 0) {
       throw new Error(`Failed to add reaction: ${JSON.stringify(data)}`);
     }
-    return data;
+    return data.data ?? data;
+  }
+
+  async removeReaction(messageId, reactionId) {
+    const token = await this.getTenantAccessToken();
+    const response = await fetch(
+      `https://open.feishu.cn/open-apis/im/v1/messages/${messageId}/reactions/${encodeURIComponent(reactionId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    );
+    const data = await response.json();
+    if (!response.ok || data.code !== 0) {
+      throw new Error(`Failed to remove reaction: ${JSON.stringify(data)}`);
+    }
+    return data.data ?? data;
   }
 
   async uploadImage(filePath) {

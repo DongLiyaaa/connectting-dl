@@ -31,7 +31,7 @@ export function normalizeConfig(input, configPath) {
       appSecret: String(input?.feishu?.appSecret ?? ""),
       verificationToken: String(input?.feishu?.verificationToken ?? ""),
       encryptKey: String(input?.feishu?.encryptKey ?? ""),
-      botName: String(input?.feishu?.botName ?? "connectting-dl"),
+      botName: String(input?.feishu?.botName ?? ""),
       processingReactionEmoji: String(input?.feishu?.processingReactionEmoji ?? "DONE"),
       groupRequireMention: Boolean(input?.feishu?.groupRequireMention ?? true),
       allowedChatIds: Array.isArray(input?.feishu?.allowedChatIds) ? input.feishu.allowedChatIds.map(String) : [],

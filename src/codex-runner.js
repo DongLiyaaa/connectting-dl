@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { execFile } from "node:child_process";
@@ -22,6 +23,55 @@ export class CodexRunner {
     this.config = config;
     this.logger = logger;
     this.resolvedCommand = null;
+    this.replyFooterMeta = null;
+  }
+
+  async getReplyFooterMeta() {
+    if (this.replyFooterMeta) {
+      return this.replyFooterMeta;
+    }
+
+    let model = this.findConfiguredModelArg() || "default";
+    let reasoning = "default";
+
+    try {
+      const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+      const raw = await fs.readFile(path.join(codexHome, "config.toml"), "utf8");
+      model = raw.match(/^model\s*=\s*"([^"]+)"/m)?.[1] || model;
+      reasoning = raw.match(/^model_reasoning_effort\s*=\s*"([^"]+)"/m)?.[1] || reasoning;
+    } catch {
+      // Keep fallbacks if the local Codex config is unavailable.
+    }
+
+    this.replyFooterMeta = {
+      model,
+      reasoning,
+      workDir: this.config.codex.workDir
+    };
+    return this.replyFooterMeta;
+  }
+
+  findConfiguredModelArg() {
+    const args = this.config.codex.extraArgs || [];
+    for (let index = 0; index < args.length; index += 1) {
+      const current = args[index];
+      if (current === "--model" || current === "-m") {
+        return args[index + 1] || "";
+      }
+      if (current.startsWith("--model=")) {
+        return current.slice("--model=".length);
+      }
+    }
+    return "";
+  }
+
+  async decorateVisibleText(text) {
+    const visible = String(text || "").trim();
+    if (!visible) {
+      return visible;
+    }
+    const meta = await this.getReplyFooterMeta();
+    return `${visible}\n\n${meta.model} - ${meta.reasoning} - ${meta.workDir}`;
   }
 
   async resolveCommand() {

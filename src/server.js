@@ -378,6 +378,7 @@ export class BridgeServer {
       return jsonResponse(200, { ok: true, ignored: "chat_policy" });
     }
     this.inflightMessageIds.add(messageId);
+    let processingReactionId = null;
     try {
       await this.ensureOwnerBinding(senderOpenId);
       const ownerCommand = isOwner(this.config, senderOpenId) ? parseOwnerCommand(this.config, text) : null;
@@ -387,7 +388,7 @@ export class BridgeServer {
       }
 
       if (ownerCommand) {
-        await this.tryAddProcessingReaction(messageId);
+        processingReactionId = await this.tryAddProcessingReaction(messageId);
         const ownerReply = await this.handleOwnerCommand(ownerCommand, {
           messageId,
           senderOpenId,
@@ -408,7 +409,7 @@ export class BridgeServer {
       }
 
       const sessionMeta = buildSessionMeta(event);
-      await this.tryAddProcessingReaction(messageId);
+      processingReactionId = await this.tryAddProcessingReaction(messageId);
       const reply = await this.runSessionTurn(sessionMeta, text);
       await this.sendReplyPackage(messageId, reply, {
         sourceMessageId: messageId,
@@ -418,6 +419,7 @@ export class BridgeServer {
       await this.sessionStore.markProcessedMessage(messageId);
       return jsonResponse(200, { ok: true, sessionId: sessionMeta.sessionId });
     } finally {
+      await this.tryRemoveProcessingReaction(messageId, processingReactionId);
       this.inflightMessageIds.delete(messageId);
     }
   }
@@ -556,6 +558,8 @@ export class BridgeServer {
         };
       }
 
+      replyPackage.visibleText = await this.codexRunner.decorateVisibleText(replyPackage.visibleText);
+
       await this.sessionStore.appendMessage(session.sessionId, "assistant", replyPackage.visibleText, {
         attachments: replyPackage.attachments.map((item) => ({
           type: item.type,
@@ -653,10 +657,27 @@ export class BridgeServer {
 
   async tryAddProcessingReaction(messageId) {
     try {
-      await this.feishuClient.addReaction(messageId);
+      const reaction = await this.feishuClient.addReaction(messageId);
+      return reaction.reaction_id ?? null;
     } catch (error) {
       this.logger.warn("reaction add failed", {
         messageId,
+        message: error instanceof Error ? shortText(error.message, 160) : String(error)
+      });
+      return null;
+    }
+  }
+
+  async tryRemoveProcessingReaction(messageId, reactionId) {
+    if (!reactionId) {
+      return;
+    }
+    try {
+      await this.feishuClient.removeReaction(messageId, reactionId);
+    } catch (error) {
+      this.logger.warn("reaction remove failed", {
+        messageId,
+        reactionId,
         message: error instanceof Error ? shortText(error.message, 160) : String(error)
       });
     }
