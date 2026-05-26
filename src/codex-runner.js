@@ -1,8 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { nowIso, shortText } from "./utils.js";
 import { parseReplyPackage, validateReplyPackage } from "./reply-package.js";
+
+const execFileAsync = promisify(execFile);
 
 function buildTranscript(messages) {
   return messages
@@ -17,6 +21,65 @@ export class CodexRunner {
   constructor(config, logger) {
     this.config = config;
     this.logger = logger;
+    this.resolvedCommand = null;
+  }
+
+  async resolveCommand() {
+    if (this.resolvedCommand) {
+      return this.resolvedCommand;
+    }
+
+    const configured = this.config.codex.command;
+    if (configured.includes("/")) {
+      this.resolvedCommand = {
+        command: configured,
+        prefixArgs: []
+      };
+      return this.resolvedCommand;
+    }
+
+    try {
+      const result = await execFileAsync("which", [configured], {
+        env: process.env,
+        maxBuffer: 1024 * 1024
+      });
+      const resolved = result.stdout.trim();
+      if (resolved) {
+        this.resolvedCommand = {
+          command: resolved,
+          prefixArgs: []
+        };
+        return this.resolvedCommand;
+      }
+    } catch {
+      // Fall back to the configured command name if `which` is unavailable or
+      // the executable is not in PATH. The spawn error will still surface.
+    }
+
+    this.resolvedCommand = {
+      command: configured,
+      prefixArgs: []
+    };
+    return this.resolvedCommand;
+  }
+
+  async buildSpawnSpec() {
+    const resolved = await this.resolveCommand();
+    try {
+      const source = await fs.readFile(resolved.command, "utf8");
+      if (source.startsWith("#!/usr/bin/env node")) {
+        return {
+          command: process.execPath,
+          argsPrefix: [resolved.command]
+        };
+      }
+    } catch {
+      // Ignore read failures and fall back to the resolved executable path.
+    }
+    return {
+      command: resolved.command,
+      argsPrefix: resolved.prefixArgs
+    };
   }
 
   async run(session, userMessage) {
@@ -40,14 +103,17 @@ export class CodexRunner {
     const tmpFile = path.join(this.config.storage.dataDir, "tmp", `codex-${Date.now()}.txt`);
     const args = [...this.config.codex.extraArgs, "-C", this.config.codex.workDir, "-o", tmpFile, prompt];
     const startedAt = Date.now();
+    const spawnSpec = await this.buildSpawnSpec();
+    const command = spawnSpec.command;
+    const finalArgs = [...spawnSpec.argsPrefix, ...args];
 
     this.logger.info("starting codex exec", {
       sessionId: session.sessionId,
-      command: this.config.codex.command,
-      args: args.map((item) => shortText(item, 80))
+      command,
+      args: finalArgs.map((item) => shortText(item, 80))
     });
 
-    const child = spawn(this.config.codex.command, args, {
+    const child = spawn(command, finalArgs, {
       cwd: this.config.codex.workDir,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"]
