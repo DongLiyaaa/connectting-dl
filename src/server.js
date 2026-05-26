@@ -1,9 +1,10 @@
 import http from "node:http";
+import { toConfigFile } from "./config.js";
 import { Logger } from "./logger.js";
 import { SessionStore } from "./session-store.js";
 import { FeishuClient } from "./feishu-client.js";
 import { CodexRunner } from "./codex-runner.js";
-import { shortText } from "./utils.js";
+import { shortText, writeJson } from "./utils.js";
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -316,7 +317,6 @@ export class BridgeServer {
     const senderOpenId = event?.sender?.sender_id?.open_id ?? "";
     const rawText = normalizeTextMessage(event?.message?.content);
     const text = event?.message?.chat_type === "group" ? stripLeadingMentions(rawText) : rawText;
-    const ownerCommand = isOwner(this.config, senderOpenId) ? parseOwnerCommand(this.config, text) : null;
 
     if (!messageId || !chatId || !text) {
       return jsonResponse(200, { ok: true, ignored: "empty_message" });
@@ -327,12 +327,15 @@ export class BridgeServer {
     if (!isChatAllowed(this.config, chatId)) {
       return jsonResponse(200, { ok: true, ignored: "chat_policy" });
     }
-    if (!shouldProcessGroup(this.config, payload, Boolean(ownerCommand))) {
-      return jsonResponse(200, { ok: true, ignored: "mention_required" });
-    }
-
     this.inflightMessageIds.add(messageId);
     try {
+      await this.ensureOwnerBinding(senderOpenId);
+      const ownerCommand = isOwner(this.config, senderOpenId) ? parseOwnerCommand(this.config, text) : null;
+
+      if (!shouldProcessGroup(this.config, payload, Boolean(ownerCommand))) {
+        return jsonResponse(200, { ok: true, ignored: "mention_required" });
+      }
+
       if (ownerCommand) {
         await this.tryAddProcessingReaction(messageId);
         const ownerReply = await this.handleOwnerCommand(ownerCommand, {
@@ -367,6 +370,17 @@ export class BridgeServer {
     } finally {
       this.inflightMessageIds.delete(messageId);
     }
+  }
+
+  async ensureOwnerBinding(senderOpenId) {
+    if (!senderOpenId || this.config.owner.openIds.length) {
+      return;
+    }
+    this.config.owner.openIds = [senderOpenId];
+    await writeJson(this.config.configPath, toConfigFile(this.config));
+    this.logger.info("owner auto-bound from first incoming message", {
+      ownerOpenId: senderOpenId
+    });
   }
 
   async handleOwnerCommand(command, context) {

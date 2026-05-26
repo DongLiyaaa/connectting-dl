@@ -63,6 +63,48 @@ export function normalizeConfig(input, configPath) {
   };
 }
 
+export function toConfigFile(config) {
+  return {
+    server: {
+      host: config.server.host,
+      port: config.server.port
+    },
+    storage: {
+      dataDir: config.storage.dataDir,
+      dbPath: config.storage.dbPath
+    },
+    feishu: {
+      appId: config.feishu.appId,
+      appSecret: config.feishu.appSecret,
+      verificationToken: config.feishu.verificationToken,
+      encryptKey: config.feishu.encryptKey,
+      botName: config.feishu.botName,
+      processingReactionEmoji: config.feishu.processingReactionEmoji,
+      groupRequireMention: config.feishu.groupRequireMention,
+      allowedChatIds: [...config.feishu.allowedChatIds],
+      blockedChatIds: [...config.feishu.blockedChatIds],
+      replyPrefix: config.feishu.replyPrefix
+    },
+    owner: {
+      openIds: [...config.owner.openIds],
+      commandPrefix: config.owner.commandPrefix,
+      allowReadAllSessions: config.owner.allowReadAllSessions,
+      allowTakeover: config.owner.allowTakeover
+    },
+    codex: {
+      command: config.codex.command,
+      workDir: config.codex.workDir,
+      timeoutMs: config.codex.timeoutMs,
+      historyWindow: config.codex.historyWindow,
+      extraArgs: [...config.codex.extraArgs],
+      promptPreamble: config.codex.promptPreamble
+    },
+    sessionPolicy: {
+      maxMessages: config.sessionPolicy.maxMessages
+    }
+  };
+}
+
 export function validateConfig(config) {
   const failures = [];
   if (!config.feishu.appId) {
@@ -73,9 +115,6 @@ export function validateConfig(config) {
   }
   if (!Number.isInteger(config.server.port) || config.server.port <= 0) {
     failures.push("server.port must be a positive integer");
-  }
-  if (!config.owner.openIds.length) {
-    failures.push("owner.openIds must contain at least one Feishu open_id");
   }
   if (!config.codex.extraArgs.length || config.codex.extraArgs[0] !== "exec") {
     failures.push("codex.extraArgs must start with \"exec\"");

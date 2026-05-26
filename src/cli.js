@@ -88,7 +88,7 @@ function buildInitConfig(options) {
       replyPrefix: ""
     },
     owner: {
-      openIds: [options.ownerOpenId],
+      openIds: options.ownerOpenId ? [options.ownerOpenId] : [],
       commandPrefix: "/ctl",
       allowReadAllSessions: false,
       allowTakeover: true
@@ -207,19 +207,13 @@ async function handleInit(configPath) {
         }
         process.stdout.write("\n");
       }
-      ownerOpenId = await promptValue(rl, "Owner Feishu open_id", ownerOpenId, { required: true });
       appId = await promptValue(rl, "Feishu app_id", appId, { required: true });
       appSecret = await promptValue(rl, "Feishu app_secret", appSecret, { required: true, secret: true });
-      verificationToken = await promptValue(rl, "Feishu verification token", verificationToken);
-      encryptKey = await promptValue(rl, "Feishu encrypt key", encryptKey);
     } finally {
       rl.close();
     }
   }
 
-  if (!ownerOpenId) {
-    throw new Error("Owner Feishu open_id is required. Pass --owner-open-id or run init in a TTY.");
-  }
   if (!appId) {
     throw new Error("Feishu app_id is required. Pass --app-id or run init in a TTY.");
   }
@@ -246,12 +240,12 @@ async function handleInit(configPath) {
       `Created config: ${paths.resolvedConfigPath}`,
       `App home: ${paths.appHome}`,
       `Workspace: ${workspaceDir}`,
-      `Owner open_id: ${ownerOpenId}`,
+      `Owner binding: ${ownerOpenId ? ownerOpenId : "auto-bind on first incoming message"}`,
       "",
       "Next steps:",
       "  1. connectting-dl doctor",
       "  2. connectting-dl serve",
-      "  3. Point Feishu event callback to /feishu/events"
+      "  3. Send the first message from the intended owner account to complete owner auto-binding"
     ].join("\n") + "\n"
   );
 }

@@ -60,7 +60,8 @@ During `init`, the terminal prompts for:
 
 - Feishu `app_id`
 - Feishu `app_secret`
-- owner `open_id`
+
+Owner binding is automatic by default. If `owner.openIds` is empty, the first incoming Feishu sender is persisted as the owner.
 
 2. Verify local setup.
 
@@ -88,7 +89,9 @@ http(s)://<your-host>:8787/feishu/events
 
 ### Owner configuration
 
-The owner identity is configured in `owner.openIds` inside `~/.connectting-dl/config.json`.
+By default, `owner.openIds` can be left empty during setup. The first incoming Feishu sender is auto-bound and then persisted into `~/.connectting-dl/config.json`.
+
+If you need to pin or change the owner manually later, edit `owner.openIds` directly.
 
 `/ctl show` is denied unless `owner.allowReadAllSessions` is explicitly enabled.
 
@@ -165,7 +168,7 @@ Exact app permissions depend on whether you run in internal or marketplace mode.
 ### Notes / caveats
 
 - This MVP focuses on text messages first.
-- Encrypted Feishu callbacks are supported when `encryptKey` is configured.
+- `verificationToken` and `encryptKey` are optional. Leave them empty unless your Feishu ingress mode specifically requires callback verification or encrypted callback payloads.
 - `codex exec` runs with a rolling transcript window, not a native resumed Codex session.
 - default runner args are limited to `codex exec` options that are actually supported by the CLI.
 - Duplicate Feishu `message_id` events are ignored after the first successful handling.
@@ -235,7 +238,8 @@ connectting-dl init
 
 - 飞书 `app_id`
 - 飞书 `app_secret`
-- owner `open_id`
+
+默认会自动绑定 owner。如果 `owner.openIds` 为空，系统会把第一条进入的飞书消息发送者持久化为 owner。
 
 2. 检查本地配置。
 
@@ -263,7 +267,9 @@ http(s)://<your-host>:8787/feishu/events
 
 ### owner 配置
 
-owner 身份通过 `~/.connectting-dl/config.json` 中的 `owner.openIds` 配置。
+默认初始化时可以不填写 `owner.openIds`。如果这里为空，系统会把第一条进入的飞书消息发送者自动绑定为 owner，并写回 `~/.connectting-dl/config.json`。
+
+如果后续需要手动指定或切换 owner，可以直接编辑 `owner.openIds`。
 
 除非显式启用 `owner.allowReadAllSessions`，否则 `/ctl show` 会被拒绝。
 
@@ -340,7 +346,7 @@ connectting-dl init \
 ### 注意事项
 
 - 这个 MVP 当前优先处理文本消息。
-- 当配置了 `encryptKey` 时，支持加密的飞书回调。
+- `verificationToken` 和 `encryptKey` 都是可选项。只有在你的飞书接入模式明确需要回调验签或加密回调体时才需要填写。
 - `codex exec` 使用滚动 transcript 窗口，而不是原生恢复的 Codex 会话。
 - 默认 runner 参数只会保留 CLI 实际支持的 `codex exec` 选项。
 - 重复的飞书 `message_id` 事件在首次成功处理后会被忽略。
