@@ -36,6 +36,92 @@ Registry install command for the future published package:
 npm install -g connectting-dl
 ```
 
+### Connect To Codex CLI
+
+After `connectting-dl` is installed, it talks to the local `codex` executable on your machine.
+
+Recommended setup flow:
+
+1. Install and log in to Codex CLI first.
+
+```bash
+codex --help
+codex login
+```
+
+2. Confirm Codex CLI is callable from your shell.
+
+```bash
+which codex
+codex exec "Reply with: ok"
+```
+
+3. Run `connectting-dl init` and fill in the Feishu app credentials.
+
+```bash
+connectting-dl init
+```
+
+4. Check or edit `~/.connectting-dl/config.json`.
+
+Key fields:
+
+- `codex.command`: path to the Codex CLI executable
+- `codex.workDir`: default project/workspace directory passed to Codex
+- `codex.extraArgs`: default `codex exec` arguments used by the bridge
+
+Example:
+
+```json
+{
+  "codex": {
+    "command": "/usr/local/bin/codex",
+    "workDir": "/Users/<you>/codex-cli/workspace",
+    "extraArgs": [
+      "exec",
+      "--skip-git-repo-check",
+      "--sandbox",
+      "workspace-write"
+    ]
+  }
+}
+```
+
+5. Verify the bridge config.
+
+```bash
+connectting-dl doctor
+```
+
+6. Start the bridge.
+
+```bash
+connectting-dl serve
+```
+
+Or install it as a background service:
+
+```bash
+connectting-dl daemon install
+```
+
+7. Open the bot chat and send the first message.
+
+```bash
+connectting-dl bind --open
+```
+
+That first real Feishu message will:
+
+- verify the Feishu -> connectting-dl ingress path
+- trigger `codex exec`
+- auto-bind the sender as owner when `owner.openIds` is empty
+
+Notes:
+
+- For daemon mode, using an absolute `codex.command` such as `/usr/local/bin/codex` is more reliable than relying on `PATH`.
+- The bridge does not embed Codex. It is only a wrapper around your existing local Codex CLI installation.
+
 ### Quick start
 
 1. Run the installer.
@@ -253,6 +339,92 @@ Exact app permissions depend on whether you run in internal or marketplace mode.
 ```bash
 npm install -g connectting-dl
 ```
+
+### 如何对接 Codex CLI
+
+`connectting-dl` 安装完成后，真正执行模型回复的是你本机上的 `codex` 可执行文件。
+
+推荐接入流程：
+
+1. 先安装并登录 Codex CLI。
+
+```bash
+codex --help
+codex login
+```
+
+2. 先确认 shell 里能直接调用 `codex`。
+
+```bash
+which codex
+codex exec "Reply with: ok"
+```
+
+3. 运行 `connectting-dl init`，填入飞书应用凭证。
+
+```bash
+connectting-dl init
+```
+
+4. 检查或编辑 `~/.connectting-dl/config.json`。
+
+关键字段：
+
+- `codex.command`：Codex CLI 可执行文件路径
+- `codex.workDir`：传给 Codex 的默认项目目录
+- `codex.extraArgs`：bridge 调用 `codex exec` 时附带的默认参数
+
+示例：
+
+```json
+{
+  "codex": {
+    "command": "/usr/local/bin/codex",
+    "workDir": "/Users/<you>/codex-cli/workspace",
+    "extraArgs": [
+      "exec",
+      "--skip-git-repo-check",
+      "--sandbox",
+      "workspace-write"
+    ]
+  }
+}
+```
+
+5. 检查 bridge 配置。
+
+```bash
+connectting-dl doctor
+```
+
+6. 启动 bridge。
+
+```bash
+connectting-dl serve
+```
+
+或者安装成后台守护：
+
+```bash
+connectting-dl daemon install
+```
+
+7. 打开 bot 会话并发送第一条消息。
+
+```bash
+connectting-dl bind --open
+```
+
+这第一条真实飞书消息会同时完成：
+
+- 验证 Feishu -> connectting-dl 的接入链路
+- 触发 `codex exec`
+- 如果 `owner.openIds` 为空，则自动把发送者绑定为 owner
+
+说明：
+
+- 如果你用守护方式运行，`codex.command` 最好写绝对路径，例如 `/usr/local/bin/codex`，比依赖 `PATH` 更稳。
+- `connectting-dl` 本身并不内置 Codex，它只是包装你本机已有的 Codex CLI。
 
 ### 快速开始
 
